@@ -1,0 +1,46 @@
+from faster_whisper import WhisperModel
+import pandas as pd
+
+class speech_to_text:
+    def __init__(self, model_size="base"):
+        self.model = WhisperModel(model_size, device="cpu", compute_type="int8")
+        self.token = pd.read_csv("ttsToken.csv")
+
+    def transcribe(self, audio_path, lang=None): # Added lang parameter
+        # If lang is provided (e.g., "ja"), it skips detection.
+        # If lang is None, it auto-detects.
+        if (lang != None):
+            lang = self.getToken(lang)
+        
+        segments, info = self.model.transcribe(
+            audio_path, 
+            beam_size=5, 
+            language=lang  # <--- This is where you specify the language
+        )
+
+        if lang:
+            print(f"Manual Language Set: {lang}")
+        else:
+            print(f"Detected language '{info.language}' with probability {info.language_probability:.2f}")
+
+        full_text = ""
+        for segment in segments:
+            full_text += segment.text + " "
+        
+        return full_text.strip()
+    
+    def getToken(self,lang:str):
+        langtoken = self.token.loc[self.token["Language"].str.lower() == lang.lower()]
+        if (len(langtoken) > 0):
+            return langtoken.values[0][1]
+
+# # Example usage:
+# stt = speech_to_text()
+
+# # Force Japanese transcription
+# text = stt.transcribe("output/12302025194832.wav", lang="japanese") 
+
+# # Force English transcription
+# # text = stt.transcribe("output/12302025194832.wav", lang="en")
+
+# print(f"You said: {text}")
