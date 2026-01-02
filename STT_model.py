@@ -1,9 +1,11 @@
 from faster_whisper import WhisperModel
+import torch
 import pandas as pd
 
 class speech_to_text:
     def __init__(self, model_size="base"):
-        self.model = WhisperModel(model_size, device="cpu", compute_type="int8")
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.model = WhisperModel("large", device=self.device, compute_type="float16")
         self.token = pd.read_csv("ttsToken.csv")
 
     def transcribe(self, audio_path, lang=None): # Added lang parameter
@@ -38,9 +40,11 @@ class speech_to_text:
 # stt = speech_to_text()
 
 # # Force Japanese transcription
-# text = stt.transcribe("output/12302025194832.wav", lang="japanese") 
+# text = stt.transcribe("output/12312025201215.wav", lang="japanese") 
+# print(f"You said: {text}")
+
 
 # # Force English transcription
-# # text = stt.transcribe("output/12302025194832.wav", lang="en")
+# text = stt.transcribe("output/12312025201204.wav", lang="en")
 
 # print(f"You said: {text}")
