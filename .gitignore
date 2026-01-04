@@ -1,1 +1,3 @@
 *.wav
+nllb_3.3B_ct2/
+secret.toml

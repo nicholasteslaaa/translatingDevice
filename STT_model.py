@@ -5,7 +5,7 @@ import pandas as pd
 class speech_to_text:
     def __init__(self, model_size="base"):
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        self.model = WhisperModel("large", device=self.device, compute_type="float16")
+        self.model = WhisperModel("deepdml/faster-whisper-large-v3-turbo-ct2", device="cuda", compute_type="int8_float16")
         self.token = pd.read_csv("ttsToken.csv")
 
     def transcribe(self, audio_path, lang=None): # Added lang parameter
@@ -37,7 +37,7 @@ class speech_to_text:
             return langtoken.values[0][1]
 
 # # Example usage:
-# stt = speech_to_text()
+stt = speech_to_text()
 
 # # Force Japanese transcription
 # text = stt.transcribe("output/12312025201215.wav", lang="japanese") 

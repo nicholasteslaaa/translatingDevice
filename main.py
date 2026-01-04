@@ -45,10 +45,10 @@ async def translating_voice(file: UploadFile = File(...)):
         f.write(await file.read())
 
     try:
-        indonesian_text = sttModel.transcribe(temp_path,"indonesian")
-        print(f"User said: {indonesian_text}")
+        english_text = sttModel.transcribe(temp_path,"english")
+        print(f"User said: {english_text}")
         
-        japanese_text = translatorModel.translate(indonesian_text, "indonesian", "japanese")
+        japanese_text = translatorModel.translate(english_text, "english", "japanese")
         print(f"translated: {japanese_text}")
         
         japanese_tts = ttsModel.generate(japanese_text,"japanese")
