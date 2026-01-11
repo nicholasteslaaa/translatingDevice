@@ -1,15 +1,16 @@
 import ctranslate2
 import transformers
 import pandas as pd
-import os
+import torch
 
 class translator:
     def __init__(self):
         # 1. Use the LOCAL path for everything
         model_path = "nllb_3.3B_ct2"
         print(f"Loading {model_path} via CTranslate2...")
-
-        self.translator = ctranslate2.Translator(model_path, device="cuda", device_index=0)
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        
+        self.translator = ctranslate2.Translator(model_path, device=self.device, device_index=0)
         
         # Load tokenizer from the local folder we created
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
