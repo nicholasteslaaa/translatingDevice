@@ -45,42 +45,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.post("/translatingVoice")
-async def translating_voice(file: UploadFile = File(...)):
-    # 1. Save the uploaded file temporarily so the STT model can read it
-    temp_path = "temp_input.webm"
-    with open(temp_path, "wb") as f:
-        f.write(await file.read())
-
-    try:
-        english_text = sttModel.transcribe(temp_path,"english")
-        print(f"User said: {english_text}")
-        
-        japanese_text = translatorModel.translate(english_text, "english", "japanese")
-        print(f"translated: {japanese_text}")
-        
-        japanese_tts = ttsModel.generate(japanese_text,"japanese")
-        playsound(japanese_tts)
-        
-        english_text = translatorModel.translate(japanese_text, "japanese", "english")
-        print(f"translated: {english_text}")
-        
-        english_tts = ttsModel.generate(english_text,"english")
-        playsound(english_tts)  
-
-        return {
-            "original_text": english_text,
-            "translated_text": japanese_text,
-            "status": "success"
-        }
-    except Exception as e:
-        print(f"Error: {e}")
-        return {"error": str(e)}
-    finally:
-        # Clean up the temp file
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
             
 @app.post("/upload")
 async def receive_audio(request: Request,SourceLanguage:str = Query(...),OutputLanguage:str = Query(...)):
@@ -113,14 +77,14 @@ async def receive_audio(request: Request,SourceLanguage:str = Query(...),OutputL
     output_tts = ttsModel.generate(output_text, OutputLanguage)
     
     # 1. Process audio to 16k 16-bit Mono
-    # audio = AudioSegment.from_file(output_tts)
-    # audio = audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)
-    # audio.export(output_tts, format="wav")
+    audio = AudioSegment.from_file(output_tts)
+    audio = audio.set_frame_rate(16000).set_channels(1).set_sample_width(2)
+    audio.export(output_tts, format="wav")
     
-    playsound(output_tts)
+    # playsound(output_tts)
     
-    # if os.path.exists(output_tts):
-    #     return FileResponse(path=output_tts, media_type="audio/wav")
+    if os.path.exists(output_tts):
+        return FileResponse(path=output_tts, media_type="audio/wav")
     
     return {"status": "error", "message": "TTS generation failed"}
 

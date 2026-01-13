@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <Preferences.h>
+#include <driver/i2s.h>
 
 Preferences prefs;
 
@@ -13,8 +14,8 @@ int availableWifiSize = sizeof(availableWifi) / sizeof(availableWifi[0]);
 
 const char* serverUrl = "http://192.168.1.4:8000/upload";
 
-#define RECORD_BUTTON1 7
-#define RECORD_BUTTON2 6
+#define RECORD_BUTTON1 19
+#define RECORD_BUTTON2 17
 #define ADC_INPUT_PIN 1
 #define SAMPLE_RATE 16000
 #define RECORD_TIME 10
@@ -95,6 +96,91 @@ void drawProgressBar(int x, int y, int width, int height, float progress) {
   display.fillRect(x + 2, y + 2, innerBarWidth, height - 4, SSD1306_WHITE);
 }
 
+// --- SPEAKER CONFIG ---
+const int i2s_bclk = 5; // Bit Clock
+const int i2s_lrc  = 4; // Word Select
+const int i2s_din  = 6; // Data Input
+#define SPEAKER_EN 7 // Pin connected to SD on the Amp
+
+void setupI2S() {
+  i2s_config_t i2s_config = {
+    .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),
+    .sample_rate = 16000, // Match your recording rate
+    .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
+    .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT, // Mono
+    .communication_format = I2S_COMM_FORMAT_STAND_I2S,
+    .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
+    .dma_buf_count = 8,
+    .dma_buf_len = 64
+  };
+
+  i2s_pin_config_t pin_config = {
+    .bck_io_num = i2s_bclk,
+    .ws_io_num = i2s_lrc,
+    .data_out_num = i2s_din,
+    .data_in_num = I2S_PIN_NO_CHANGE
+  };
+
+  i2s_driver_install(I2S_NUM_0, &i2s_config, 0, NULL);
+  i2s_set_pin(I2S_NUM_0, &pin_config);
+}
+
+// Tambahkan fungsi pembantu ini di luar playRecording
+int16_t softClip(int32_t sample) {
+    // Jika sinyal melebihi batas 22000, kita "tekuk" sinyalnya alih-alih memotongnya secara tajam
+    // Ini meniru karakteristik amplifier analog yang jernih
+    if (sample > 22000) sample = 22000 + (sample - 22000) / 4;
+    else if (sample < -22000) sample = -22000 + (sample - 22000) / 4;
+    
+    return (int16_t)constrain(sample, -32768, 32767);
+}
+
+void playRecording() {  
+    size_t bytes_written;
+    digitalWrite(SPEAKER_EN, HIGH); 
+    delay(20); 
+
+    int32_t mean = 0;
+    for (size_t i = 0; i < samplesRecorded; i++) mean += fullBuffer[i];
+    if (samplesRecorded > 0) mean /= (int32_t)samplesRecorded;
+
+    // Pakai Gain yang kuat tapi terkontrol
+    float loudGain = 15.0; 
+    float alpha = 0.9; // Koefisien filter untuk memperhalus vokal
+    int32_t lastFiltered = 0;
+
+    for (size_t i = 0; i < samplesRecorded; i++) {
+        // 1. Center sinyal
+        int32_t rawSample = fullBuffer[i] - mean;
+
+        // 2. Leaky High Pass Filter (Lebih halus dari sebelumnya)
+        // Ini membuang noise rendah tanpa membuat suara jadi pecah tajam
+        int32_t filtered = rawSample - lastFiltered;
+        lastFiltered = (int32_t)(alpha * rawSample);
+
+        // 3. Boost & Multi-stage Compression
+        int32_t boosted = (int32_t)(filtered * loudGain);
+
+        // Soft Knee Compression: Makin keras suaranya, makin kuat diredam
+        if (abs(boosted) > 10000) {
+            if (boosted > 10000) boosted = 10000 + (boosted - 10000) / 4;
+            else boosted = -10000 + (boosted + 10000) / 4;
+        }
+        
+        // Final Hard Limit sedikit di bawah batas maksimal 16-bit
+        if (boosted > 30000) boosted = 30000;
+        else if (boosted < -30000) boosted = -30000;
+
+        fullBuffer[i] = (int16_t)boosted;
+    }
+
+    i2s_write(I2S_NUM_0, fullBuffer, samplesRecorded * sizeof(int16_t), &bytes_written, portMAX_DELAY);
+    
+    delay(200); 
+    i2s_zero_dma_buffer(I2S_NUM_0);
+    digitalWrite(SPEAKER_EN, LOW); 
+}
+
 // --- CORE FUNCTIONS ---
 void sendData(String src, String out) {
   display.clearDisplay();
@@ -111,10 +197,35 @@ void sendData(String src, String out) {
 
   int httpCode = http.POST((uint8_t*)fullBuffer, actualByteSize);
 
-  display.clearDisplay();
-  if (httpCode == 200) updateScreen("SUCCESS", 1, getXMid("SUCCESS"), 30);
-  else updateScreen("ERR: " + String(httpCode), 1, 0, 30);
-  display.display();
+  if (httpCode == 200) {
+    int len = http.getSize(); // Get the size of the returned WAV
+    if (len > 0) {
+      WiFiClient* stream = http.getStreamPtr();
+      
+      // We need to skip the 44-byte WAV header sent by FastAPI
+      // so we only have raw PCM data in our buffer
+      uint8_t headerDiscard[44];
+      stream->readBytes(headerDiscard, 44);
+      
+      // Read the translated audio into your buffer
+      int remainingData = len - 44;
+      samplesRecorded = remainingData / 2; // Update count for playRecording
+      
+      stream->readBytes((uint8_t*)fullBuffer, remainingData);
+      
+      display.clearDisplay();
+      updateScreen("RECEIVED!", 1, getXMid("RECEIVED!"), 30);
+      display.display();
+      
+      delay(500);
+      playRecording(); // Play the translated sound!
+    }
+  } else {
+    display.clearDisplay();
+    updateScreen("ERR: " + String(httpCode), 1, 0, 30);
+    display.display();
+    delay(2000);
+  }
 
   delay(2000);
   samplesRecorded = 0;
@@ -293,8 +404,8 @@ void typingPage(String header) {
 }
 
 // --- PAGE CONTROLLER ---
-String page_option[] = { "selectWifiPage","typeWifiPasswordPage","mainMenu", "translatePage" };
-String current_page = page_option[0];
+String page_option[] = { "selectWifi","typeWifiPassword","mainMenu", "translate" };
+String current_page = page_option[2];
 int page_option_size = sizeof(page_option) / sizeof(page_option[0]);
 
 void translatePage() {
@@ -369,8 +480,7 @@ void translatePage() {
       updateScreen("B1: TRANSLATE", 1, 0, 25);
       updateScreen("B2: CANCEL", 1, 0, 45);
       display.display();
-
-      delay(300);  // Debounce
+      delay(1000);
       bool choiceSelected = false;
       bool proceed = false;
 
@@ -530,8 +640,8 @@ void changePage(int pageIdx) {
 
 void setup() {
   Serial.begin(115200);
-  pinMode(RECORD_BUTTON1, INPUT_PULLDOWN);  // src -> out
-  pinMode(RECORD_BUTTON2, INPUT_PULLDOWN);  // out <- src
+  pinMode(RECORD_BUTTON1, INPUT_PULLDOWN);
+  pinMode(RECORD_BUTTON2, INPUT_PULLDOWN);
   analogReadResolution(12);
 
   pinMode(UP_BUTTON, INPUT_PULLDOWN);
@@ -540,22 +650,27 @@ void setup() {
   pinMode(LEFT_BUTTON, INPUT_PULLDOWN);
   pinMode(RIGHT_BUTTON, INPUT_PULLDOWN);
 
-  
+  pinMode(SPEAKER_EN, OUTPUT);
+  digitalWrite(SPEAKER_EN, LOW);
+  setupI2S(); 
 
-  // Allocate Buffer
+  // Allocate Buffer with Safety Check
   fullBuffer = (int16_t*)ps_malloc(maxSamples * sizeof(int16_t));
   if (!fullBuffer) fullBuffer = (int16_t*)malloc(maxSamples * sizeof(int16_t));
+  
+  if (!fullBuffer) {
+    Serial.println("Memory Allocation Failed!");
+    // You might want to show this on the display too
+  }
 
-  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
-    while (1)
-      ;
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) while (1);
   display.setTextColor(SSD1306_WHITE);
-
   display.clearDisplay();
 
   lastTime = millis();
-
-  scanningWifi();
+  
+  // REMOVE scanningWifi(); from here
+  Serial.println("Setup Complete");
 }
 
 void loop() {

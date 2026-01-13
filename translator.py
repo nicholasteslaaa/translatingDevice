@@ -37,13 +37,11 @@ class translator:
         results = self.translator.translate_batch(
             [source_tokens], 
             target_prefix=[[target_lang]],
-            beam_size=5,            
-            repetition_penalty=1.2, 
-            # ADD THESE TWO LINES:
+            beam_size=3,             # Coba turunkan beam_size ke 3 atau naikkan ke 10
+            repetition_penalty=1.0,  # Turunkan ke 1.0 agar tidak terlalu "takut" mengulang kata
             num_hypotheses=1,       
             max_batch_size=1024,
-            # This prevents the model from choosing the "boring/safe" word
-            no_repeat_ngram_size=3 
+            no_repeat_ngram_size=0   # Set ke 0 untuk teks pendek seperti salam
         )
 
         # 4. CLEAN DECODING
