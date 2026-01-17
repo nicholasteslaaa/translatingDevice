@@ -12,17 +12,17 @@ Preferences prefs;
 String availableWifi[5];
 int availableWifiSize = sizeof(availableWifi) / sizeof(availableWifi[0]);
 
-const char* serverUrl = "http://192.168.1.4:8000/upload";
+const char* serverUrl = "http://api.rosblok.shop/upload";
 
-#define RECORD_BUTTON1 19
+#define RECORD_BUTTON1 18
 #define RECORD_BUTTON2 17
-#define ADC_INPUT_PIN 1
+#define ADC_INPUT_PIN 3
 #define SAMPLE_RATE 16000
 #define RECORD_TIME 10
 
 #define UP_BUTTON 12
-#define DOWN_BUTTON 10
-#define SELECT_BUTTON 13
+#define DOWN_BUTTON 13
+#define SELECT_BUTTON 10
 #define LEFT_BUTTON 11
 #define RIGHT_BUTTON 46
 

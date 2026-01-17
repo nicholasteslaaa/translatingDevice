@@ -89,4 +89,4 @@ async def receive_audio(request: Request,SourceLanguage:str = Query(...),OutputL
     return {"status": "error", "message": "TTS generation failed"}
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="192.168.1.4", port=8000)
+    uvicorn.run(app, host="192.168.1.8", port=8000)
