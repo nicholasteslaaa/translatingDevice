@@ -77,3 +77,14 @@ back the translated speech in near real time.
 | **Capacitor (1000nF)** | — | Near amp VCC | Audio noise filtering |
 
 <img src="docs/imgs/Translating-Device-Wiring.png" width="600">
+
+## Communication Flow
+1. ESP32 records audio from the microphone
+2. Audio data is sent via HTTP POST to the API endpoint
+3. Cloudflare Tunnel securely forwards the request to the local server
+    Backend server:
+    - Transcribes audio (STT)
+    - Translates text
+    - Generates TTS audio
+    - Generated audio is sent back to the ESP32 as a response
+4. ESP32 plays the audio through the speaker
