@@ -76,4 +76,4 @@ back the translated speech in near real time.
 | **Step-Up Module** | OUT+ | 5V rail | Boosts 3.7V → 5V |
 | **Capacitor (1000nF)** | — | Near amp VCC | Audio noise filtering |
 
-![Wiring](docs/imgs/Translating Device Schematic.png)
+<img src="docs/images/Translating-Device-Schematic.png" width="600">
