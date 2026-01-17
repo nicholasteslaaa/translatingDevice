@@ -16,7 +16,7 @@ back the translated speech in near real time.
 
 ## System Workflow
 1. The ESP32-S3 captures the user's voice using an external microphone.
-2. The recorded audio is sent to a backend API over Wi-Fi or Hotspot.
+2. The recorded audio is sent to a backend API exposed to the internet via Cloudflare Tunnel.
 3. The server performs speech-to-text (STT) to transcribe the spoken language.
 4. The transcribed text is translated into the target language.
 5. A text-to-speech (TTS) model generates audio from the translated text.
@@ -78,13 +78,3 @@ back the translated speech in near real time.
 
 <img src="docs/imgs/Translating-Device-Wiring.png" width="600">
 
-## Communication Flow
-1. ESP32 records audio from the microphone
-2. Audio data is sent via HTTP POST to the API endpoint
-3. Cloudflare Tunnel securely forwards the request to the local server
-    Backend server:
-    - Transcribes audio (STT)
-    - Translates text
-    - Generates TTS audio
-    - Generated audio is sent back to the ESP32 as a response
-4. ESP32 plays the audio through the speaker
