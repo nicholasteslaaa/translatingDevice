@@ -9,8 +9,9 @@ class translator:
         model_path = "nllb_3.3B_ct2"
         print(f"Loading {model_path} via CTranslate2...")
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+        self.compute_type = "int8_float16" if (self.device == "cuda") else "int8"
         
-        self.translator = ctranslate2.Translator(model_path, device=self.device, device_index=0)
+        self.translator = ctranslate2.Translator(model_path, device=self.device, device_index=0, compute_type=self.compute_type)
         
         # Load tokenizer from the local folder we created
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
@@ -23,31 +24,29 @@ class translator:
         if not source_lang or not target_lang:
             return "Error: Language code not found."
 
-        # 2. PROPER TOKENIZATION
-        # We set the src_lang so the tokenizer adds the correct special token
+        # 1. Properly set the source language for the tokenizer
         self.tokenizer.src_lang = source_lang
         
-        # encode() automatically adds the </s> and the source lang token (e.g., eng_Latn)
-        source_tokens = self.tokenizer.convert_ids_to_tokens(
-            self.tokenizer.encode(textSource)
-        )
+        # 2. Get the tokens and ensure the source_lang tag is at the START
+        # Some NLLB tokenizers put it at the end by default. 
+        # We manually ensure the structure: [src_tag, word1, word2, ..., </s>]
+        input_ids = self.tokenizer(textSource, return_tensors="pt").input_ids[0].tolist()
+        source_tokens = self.tokenizer.convert_ids_to_tokens(input_ids)
 
-        # 3. TRANSLATION WITH TARGET PREFIX
-        # Updated translation logic inside your class
+        # 3. Translation with forced Beam Search and Target Prefix
         results = self.translator.translate_batch(
             [source_tokens], 
-            target_prefix=[[target_lang]],
-            beam_size=3,             # Coba turunkan beam_size ke 3 atau naikkan ke 10
-            repetition_penalty=1.0,  # Turunkan ke 1.0 agar tidak terlalu "takut" mengulang kata
-            num_hypotheses=1,       
+            target_prefix=[[target_lang]], # Force the model to start with Japanese tag
+            beam_size=5,                   # Increase to 5 for better accuracy on short text
             max_batch_size=1024,
-            no_repeat_ngram_size=0   # Set ke 0 untuk teks pendek seperti salam
+            repetition_penalty=1.1         # Slightly higher to prevent looping
         )
 
-        # 4. CLEAN DECODING
-        # results[0].hypotheses[0] will be: ['jpn_Jpan', 'なぜ', '私の', '脇', ...]
-        # We MUST remove the first token (the target lang tag)
-        target_tokens = results[0].hypotheses[0][1:] 
+        # 4. Extract the result
+        # We remove the target_lang tag from the start of the output
+        target_tokens = results[0].hypotheses[0]
+        if target_tokens[0] == target_lang:
+            target_tokens = target_tokens[1:]
         
         return self.tokenizer.decode(
             self.tokenizer.convert_tokens_to_ids(target_tokens), 
