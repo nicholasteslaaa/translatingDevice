@@ -78,4 +78,5 @@ back the translated speech in near real time.
 
 <img src="docs/imgs/Translating-Device-Wiring.png" width="600">
 
-[DEMO](https://drive.google.com/file/d/1m9Y07yHwUnB5MbfAsf0QPd2YnQOlAtl6/view?usp=sharing)
+## DEMO
+[![Watch the video](docs/imgs/image_2026-01-25_092531113.png)](https://drive.google.com/file/d/1m9Y07yHwUnB5MbfAsf0QPd2YnQOlAtl6/view?usp=sharing)
