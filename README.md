@@ -80,5 +80,6 @@ back the translated speech in near real time.
 
 
 ## DEMO
-<video src="docs/vids/Demo.mp4" controls="controls" style="max-width: 100%;">
+<video src="https://github.com/nicholasteslaaa/translatingDevice/raw/main/video/demo.mp4" controls="controls" style="max-width: 100%;">
+  Your browser does not support the video tag.
 </video>
