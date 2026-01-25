@@ -5,7 +5,6 @@ import torch
 
 class translator:
     def __init__(self):
-        # 1. Use the LOCAL path for everything
         model_path = "nllb_3.3B_ct2"
         print(f"Loading {model_path} via CTranslate2...")
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -13,7 +12,6 @@ class translator:
         
         self.translator = ctranslate2.Translator(model_path, device=self.device, device_index=0, compute_type=self.compute_type)
         
-        # Load tokenizer from the local folder we created
         self.tokenizer = transformers.AutoTokenizer.from_pretrained(model_path)
         self.token_df = pd.read_csv("translatorToken.csv")
     
@@ -24,26 +22,19 @@ class translator:
         if not source_lang or not target_lang:
             return "Error: Language code not found."
 
-        # 1. Properly set the source language for the tokenizer
         self.tokenizer.src_lang = source_lang
         
-        # 2. Get the tokens and ensure the source_lang tag is at the START
-        # Some NLLB tokenizers put it at the end by default. 
-        # We manually ensure the structure: [src_tag, word1, word2, ..., </s>]
         input_ids = self.tokenizer(textSource, return_tensors="pt").input_ids[0].tolist()
         source_tokens = self.tokenizer.convert_ids_to_tokens(input_ids)
 
-        # 3. Translation with forced Beam Search and Target Prefix
         results = self.translator.translate_batch(
             [source_tokens], 
-            target_prefix=[[target_lang]], # Force the model to start with Japanese tag
-            beam_size=5,                   # Increase to 5 for better accuracy on short text
+            target_prefix=[[target_lang]],
+            beam_size=5,
             max_batch_size=1024,
-            repetition_penalty=1.1         # Slightly higher to prevent looping
+            repetition_penalty=1.1
         )
 
-        # 4. Extract the result
-        # We remove the target_lang tag from the start of the output
         target_tokens = results[0].hypotheses[0]
         if target_tokens[0] == target_lang:
             target_tokens = target_tokens[1:]
@@ -59,25 +50,3 @@ class translator:
             return langtoken.values[0][1]
         return None
     
-if __name__ == "__main__":
-    translatorModel = translator()
-    
-    # Test 1: The Armpit Test
-    # Target should be: なぜ私の脇は臭いのですか？
-    print("--- Test 1: Anatomy Accuracy ---")
-    input_text = "can you makem e some noodle?"
-    print(f"input: {input_text}")
-    eng_to_jap = translatorModel.translate(input_text, "English", "Japanese")
-    print(f"eng_to_jap: {eng_to_jap}")
-    jap_to_eng = translatorModel.translate(eng_to_jap, "Japanese", "English")
-    print(f"jap_to_eng: {jap_to_eng}")
-
-    # Test 2: Nuance Test
-    # Checking if it understands "stinky" vs just "smell"
-    print("\n--- Test 2: Nuance ---")
-    input_text = "My armpits are really stinks."
-    print(f"input: {input_text}")
-    eng_to_jap = translatorModel.translate(input_text, "English", "Japanese")
-    print(f"eng_to_jap: {eng_to_jap}")
-    jap_to_eng = translatorModel.translate(eng_to_jap, "Japanese", "English")
-    print(f"jap_to_eng: {jap_to_eng}")

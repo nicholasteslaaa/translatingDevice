@@ -77,3 +77,8 @@ back the translated speech in near real time.
 | **Capacitor (1000nF)** | — | Near amp VCC | Audio noise filtering |
 
 <img src="docs/imgs/Translating-Device-Wiring.png" width="600">
+
+
+## DEMO
+<video src="docs/vids/Demo.mp4" controls="controls" style="max-width: 100%;">
+</video>

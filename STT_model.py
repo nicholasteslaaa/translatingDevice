@@ -9,16 +9,14 @@ class speech_to_text:
         self.model = WhisperModel("deepdml/faster-whisper-large-v3-turbo-ct2", device=self.device, compute_type=self.compute_type)
         self.token = pd.read_csv("ttsToken.csv")
 
-    def transcribe(self, audio_path, lang=None): # Added lang parameter
-        # If lang is provided (e.g., "ja"), it skips detection.
-        # If lang is None, it auto-detects.
+    def transcribe(self, audio_path, lang=None):
         if (lang != None):
             lang = self.getToken(lang)
         
         segments, info = self.model.transcribe(
             audio_path, 
             beam_size=5, 
-            language=lang  # <--- This is where you specify the language
+            language=lang
         )
 
         if lang:
@@ -36,16 +34,3 @@ class speech_to_text:
         langtoken = self.token.loc[self.token["Language"].str.lower() == lang.lower()]
         if (len(langtoken) > 0):
             return langtoken.values[0][1]
-
-# # Example usage:
-stt = speech_to_text()
-
-# # Force Japanese transcription
-# text = stt.transcribe("output/12312025201215.wav", lang="japanese") 
-# print(f"You said: {text}")
-
-
-# # Force English transcription
-# text = stt.transcribe("output/12312025201204.wav", lang="en")
-
-# print(f"You said: {text}")

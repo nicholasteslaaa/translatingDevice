@@ -15,11 +15,9 @@ class text_to_speech:
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         print(f"Loading local model from {model_path}...")
 
-        # 1. Load the Model manually
         self.model = KModel(config=config_path, model=model_path).to(self.device)
         self.model.eval()
 
-        # 2. Setup separate pipelines
         self.pipelines = {
             'japanese': KPipeline(lang_code='j', model=self.model, device=self.device),
             'english': KPipeline(lang_code='a', model=self.model, device=self.device)
@@ -41,17 +39,11 @@ class text_to_speech:
             print(f"Error: Voice file not found at {voice_file}")
             return None
         
-        # 3. Load the voice pack
         voice_pack = torch.load(voice_file, weights_only=True).to(self.device)
 
-        # 4. THE MONKEY PATCH: 
-        # We manually put the voice data into the pipeline's internal dictionary.
-        # This prevents the library from trying to "split" or "download" anything.
         pipeline.voices[lang.lower()] = voice_pack
 
         try:
-            # We pass the name 'english' or 'japanese', and since we added it to 
-            # pipeline.voices above, it will find it instantly and work.
             generator = pipeline(text, voice=lang.lower(), speed=1.0)
 
             all_audio = []
@@ -68,12 +60,4 @@ class text_to_speech:
             import traceback
             traceback.print_exc() # This will show exactly where it fails
             return None
-        
-if __name__ == "__main__":
-    tts = text_to_speech()
     
-    # Test English
-    tts.generate("Hello, how are you? I'm fine, thank you.", lang="english")
-    
-    # Test Japanese
-    tts.generate("こんにちは、お元気ですか？", lang="japanese")
